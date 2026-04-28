@@ -5,34 +5,39 @@ vidcap = cv2.VideoCapture('bad-apple-scaled.mp4')
 
 success,image = vidcap.read()
 count = 0
-pixel_count = 0
-out_val = 0
 
-out = open('out.bin', 'wb')
+white = False
+rle_value = 0
 
-while success:
-  for x in range(160):
-    for y in range(240):
-        pxl = image[x,y]
+def is_white(pxl):
+    total = int(pxl[0]) + int(pxl[1]) + int(pxl[2])
 
-        total = int(pxl[0]) + int(pxl[1]) + int(pxl[2])
+    if total > 483:
+        return True
+    
+    return False
 
-        if total > 483:
-            out_val = out_val | 1
+with open('out.bin', 'wb') as out:
+    while success:
+        for y in range(160):
+            for x in range(240):
+                pxl = image[y, x]
+                pixel_is_white = is_white(pxl)
 
-        pixel_count +=1
-        
-        if pixel_count == 8:
-            out.write(struct.pack("=B", out_val))
-            out_val = 0
-            pixel_count = 0
-        else:
-            out_val = out_val << 1;
+                if white == pixel_is_white:
+                    rle_value += 1
 
+                    if rle_value == 255:
+                        out.write(struct.pack("=B", 255))
+                        out.write(struct.pack("=B", 0))
+                        rle_value = 0
+                else:
+                    out.write(struct.pack("=B", rle_value))
+                    white = pixel_is_white
+                    rle_value = 1
 
-  success,image = vidcap.read()
-  print('Read a new frame: ', success)
-  count += 1
+        success, image = vidcap.read()
+        print('Read a new frame: ', success)
+        count += 1
 
-  if count == 1500:
-    exit(1)
+    out.write(struct.pack("=B", rle_value))
